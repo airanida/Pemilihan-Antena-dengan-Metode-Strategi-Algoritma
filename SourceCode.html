@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optimasi Pengambilan Antena</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #2c3e50;
+  }  
+
+  #container {
+    width: 90%;
+    max-width: 400px; /* Limit the container's width for better readability */
+    padding: 20px;
+    background-color: #ecf0f1;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+
+  h3 {
+    color: #2c3e50;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 10px;
+    color: #2c3e50;
+  }
+
+  input[type="number"] {
+    width: calc(100% - 12px);
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+
+  select {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+
+  button {
+    width: 100%; /* Make button full-width */
+    padding: 10px 0; /* Vertical padding */
+    background-color: #3498db;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background-color: #2980b9;
+  }
+
+  #result {
+    margin-top: 20px;
+    color: #2c3e50;
+  }
+
+  #chartContainer {
+    margin-top: 20px;
+  }
+
+  #chartContainer canvas {
+    margin-bottom: 20px;
+  }
+
+  #backButton {
+    width: 100%; /* Make button full-width */
+    padding: 10px 0; /* Vertical padding */
+    margin-top: 20px;
+    background-color: #e74c3c;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  #backButton:hover {
+    background-color: #c0392b;
+  }
+</style>
+</head>
+<body>
+
+<div id="container">
+  <div id="inputSection">
+    <label for="luas">Luas Wilayah (meter persegi):</label>
+    <input type="number" id="luas" min="1" placeholder="Masukkan luas wilayah">
+
+    <label for="algoritma">Pilih Algoritma:</label>
+    <select id="algoritma">
+      <option value="greedy">Greedy</option>
+      <option value="both">Keduanya (Greedy dan Brute Force)</option>
+    </select>
+
+    <div id="antennaInfo">
+      <h3>Jenis Antena dan Jangkauan</h3>
+      <ul>
+        <li>Antena A: Luas 1 m², Biaya Rp 350,000</li>
+        <li>Antena B: Luas 5 m², Biaya Rp 500,000</li>
+        <li>Antena C: Luas 10 m², Biaya Rp 750,000</li>
+        <li>Antena D: Luas 15 m², Biaya Rp 1,000,000</li>
+        <li>Antena E: Luas 20 m², Biaya Rp 1,250,000</li>
+        <li>Antena F: Luas 23 m², Biaya Rp 1,500,000</li>
+        <li>Antena G: Luas 25 m², Biaya Rp 1,750,000</li>
+      </ul>
+    </div>    
+
+    <button onclick="hitungOptimasi()">Hitung Optimasi</button>
+  </div>
+
+  <div id="result" style="display: none;"></div>
+  <div id="chartContainer" style="display: none;">
+    <canvas id="coverageChartGreedy" width="50" height="50"></canvas>
+    <canvas id="coverageChartBruteForce" width="50" height="50"></canvas>
+  </div>
+
+  <button id="backButton" style="display: none;" onclick="kembali()">Kembali</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let greedyChart = null;
+let bruteForceChart = null;
+
+function hitungOptimasi() {
+  const luas = parseInt(document.getElementById('luas').value);
+  if (!luas || luas <= 0) {
+    alert('Masukkan luas wilayah yang valid!');
+    return;
+  }
+
+  const algoritma = document.getElementById('algoritma').value;
+
+  const antenas = [
+    { jenis: 'Antena A', luas: 1, biaya: 350000 },
+    { jenis: 'Antena B', luas: 5, biaya: 500000 },
+    { jenis: 'Antena C', luas: 10, biaya: 750000 },
+    { jenis: 'Antena D', luas: 15, biaya: 1000000 },
+    { jenis: 'Antena E', luas: 20, biaya: 1250000 },
+    { jenis: 'Antena F', luas: 23, biaya: 1500000 },
+    { jenis: 'Antena G', luas: 25, biaya: 1750000 }
+  ];
+
+  for (const antena of antenas) {
+    antena.density = antena.biaya / antena.luas;
+  }
+
+  const hasilGreedy = hitungOptimasiGreedy(luas, antenas);
+
+  let hasilBruteForce = null;
+  if (algoritma === 'both') {
+    hasilBruteForce = hitungOptimasiBruteForce(luas, antenas);
+  }
+
+  document.getElementById('inputSection').style.display = 'none';
+
+  const resultDiv = document.getElementById('result');
+  resultDiv.style.display = 'block';
+
+  let resultHTML = `
+    <p><strong>Hasil Algoritma Greedy:</strong></p>
+    <p>${hasilGreedy.antena}</p>
+    <p>Jumlah Antena: ${hasilGreedy.jumlah}</p>
+    <p>Total Biaya Antena: ${hasilGreedy.totalBiayaAntena.toLocaleString('id-ID')}</p>
+    <p>Total Biaya Pemasangan: ${hasilGreedy.totalBiayaPemasangan.toLocaleString('id-ID')}</p>
+    <p>Total Biaya Keseluruhan: ${hasilGreedy.totalBiayaKeseluruhan.toLocaleString('id-ID')}</p>
+  `;
+
+  if (algoritma === 'both') {
+    resultHTML += `
+      <hr>
+      <p><strong>Hasil Algoritma Brute Force:</strong></p>
+      <p>${hasilBruteForce.antena}</p>
+      <p>Jumlah Antena: ${hasilBruteForce.jumlah}</p>
+      <p>Total Biaya Antena: ${hasilBruteForce.totalBiayaAntena.toLocaleString('id-ID')}</p>
+      <p>Total Biaya Pemasangan: ${hasilBruteForce.totalBiayaPemasangan.toLocaleString('id-ID')}</p>
+      <p>Total Biaya Keseluruhan: ${hasilBruteForce.totalBiayaKeseluruhan.toLocaleString('id-ID')}</p>
+    `;
+  }
+
+  resultDiv.innerHTML = resultHTML;
+
+  document.getElementById('chartContainer').style.display = 'block';
+  document.getElementById('backButton').style.display = 'block';
+
+  drawChart(hasilGreedy, 'coverageChartGreedy', 'Cakupan Area oleh Masing-masing Antena (Metode Greedy)');
+
+  if (algoritma === 'both') {
+    drawChart(hasilBruteForce, 'coverageChartBruteForce', 'Cakupan Area oleh Masing-masing Antena (Metode Brute Force)');
+  }
+}
+
+function kembali() {
+  document.getElementById('inputSection').style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('chartContainer').style.display = 'none';
+  document.getElementById('backButton').style.display = 'none';
+  document.getElementById('luas').value = '';
+
+  if (greedyChart) {
+    greedyChart.destroy();
+    greedyChart = null;
+  }
+  if (bruteForceChart) {
+    bruteForceChart.destroy();
+    bruteForceChart = null;
+  }
+}
+
+function hitungOptimasiGreedy(targetLuas, antenas) {
+  antenas.sort((a, b) => a.density - b.density);
+  let jumlah = 0;
+  let totalBiayaAntena = 0;
+  let totalBiayaPemasangan = 0;
+  let hasil = '';
+  const cakupan = {};
+
+  let sisaLuas = targetLuas;
+
+  for (const antena of antenas) {
+    let jumlahAntena = Math.floor(sisaLuas / antena.luas);
+    if (jumlahAntena > 0) {
+      jumlah += jumlahAntena;
+      const biayaAntena = jumlahAntena * antena.biaya;
+      const biayaPemasangan = jumlahAntena * 2500;
+      totalBiayaAntena += biayaAntena;
+      totalBiayaPemasangan += biayaPemasangan;
+      sisaLuas -= jumlahAntena * antena.luas;
+      hasil += `${antena.jenis}: ${jumlahAntena}\n`;
+      cakupan[antena.jenis] = (cakupan[antena.jenis] || 0) + jumlahAntena * antena.luas;
+    }
+  }
+
+  const totalBiayaKeseluruhan = totalBiayaAntena + totalBiayaPemasangan;
+
+  return { antena: hasil, jumlah, totalBiayaAntena, totalBiayaPemasangan, totalBiayaKeseluruhan, cakupan };
+}
+
+function hitungOptimasiBruteForce(targetLuas, antenas) {
+  let bestJumlah = Infinity;
+  let bestTotalBiayaAntena = Infinity;
+  let bestTotalBiayaPemasangan = Infinity;
+  let bestTotalBiayaKeseluruhan = Infinity;
+  let bestResult = '';
+  let bestCakupan = {};
+
+  for (let i = 0; i <= targetLuas; i++) {
+    for (let j = 0; j <= targetLuas / 5; j++) {
+      for (let k = 0; k <= targetLuas / 10; k++) {
+        for (let l = 0; l <= targetLuas / 15; l++) {
+          for (let m = 0; m <= targetLuas / 20; m++) {
+            for (let n = 0; n <= targetLuas / 23; n++) {
+              for (let o = 0; o <= targetLuas / 25; o++) {
+                const totalLuas = i + j * 5 + k * 10 + l * 15 + m * 20 + n * 23 + o * 25;
+                if (totalLuas === targetLuas) {
+                  const jumlah = i + j + k + l + m + n + o;
+                  const totalBiayaAntena =
+                    i * 350000 +
+                    j * 500000 +
+                    k * 750000 +
+                    l * 1000000 +
+                    m * 1250000 +
+                    n * 1500000 +
+                    o * 1750000;
+                  const totalBiayaPemasangan = jumlah * 2500;
+                  const totalBiayaKeseluruhan = totalBiayaAntena + totalBiayaPemasangan;
+
+                  if (totalBiayaKeseluruhan < bestTotalBiayaKeseluruhan) {
+                    bestJumlah = jumlah;
+                    bestTotalBiayaAntena = totalBiayaAntena;
+                    bestTotalBiayaPemasangan = totalBiayaPemasangan;
+                    bestTotalBiayaKeseluruhan = totalBiayaKeseluruhan;
+                    bestResult = `
+                      Antena A: ${i}
+                      Antena B: ${j}
+                      Antena C: ${k}
+                      Antena D: ${l}
+                      Antena E: ${m}
+                      Antena F: ${n}
+                      Antena G: ${o}
+                    `;
+                    bestCakupan = {
+                      'Antena A': i * 1,
+                      'Antena B': j * 5,
+                      'Antena C': k * 10,
+                      'Antena D': l * 15,
+                      'Antena E': m * 20,
+                      'Antena F': n * 23,
+                      'Antena G': o * 25
+                    };
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    antena: bestResult.trim(),
+    jumlah: bestJumlah,
+    totalBiayaAntena: bestTotalBiayaAntena,
+    totalBiayaPemasangan: bestTotalBiayaPemasangan,
+    totalBiayaKeseluruhan: bestTotalBiayaKeseluruhan,
+    cakupan: bestCakupan
+  };
+}
+
+function drawChart(hasil, canvasId, title) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: Object.keys(hasil.cakupan),
+      datasets: [
+        {
+          data: Object.values(hasil.cakupan),
+          backgroundColor: [
+            'rgba(54, 162, 235, 0.2)',
+            'rgba(255, 99, 132, 0.2)',
+            'rgba(255, 206, 86, 0.2)',
+            'rgba(75, 192, 192, 0.2)',
+            'rgba(153, 102, 255, 0.2)',
+            'rgba(255, 159, 64, 0.2)',
+            'rgba(201, 203, 207, 0.2)'
+          ],
+          borderColor: [
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 99, 132, 1)',
+            'rgba(255, 206, 86, 1)',
+            'rgba(75, 192, 192, 1)',
+            'rgba(153, 102, 255, 1)',
+            'rgba(255, 159, 64, 1)',
+            'rgba(201, 203, 207, 1)'
+          ],
+          borderWidth: 1
+        }
+      ]
+    },
+    options: {
+      plugins: {
+        title: {
+          display: true,
+          text: title
+        }
+      }
+    }
+  });
+
+  if (canvasId === 'coverageChartGreedy') {
+    greedyChart = chart;
+  } else if (canvasId === 'coverageChartBruteForce') {
+    bruteForceChart = chart;
+  }
+}
+</script>
+
+</body>
+</html>
